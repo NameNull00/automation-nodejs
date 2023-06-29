@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Cliente P4DSD</title>
+  <style>
+    body {
+      background-color: #F0F7FF;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      margin: 0;
+      padding: 0;
+    }
+
+    h1 {
+      color: #007BFF;
+      margin-bottom: 20px;
+    }
+
+    h2 {
+      color: #007BFF;
+      margin-top: 40px;
+    }
+
+    #measurement-container,
+    #status-container {
+      background-color: #FFFFFF;
+      padding: 20px;
+      border-radius: 8px;
+      text-align: center;
+      margin-bottom: 20px;
+    }
+
+    button {
+      padding: 10px 20px;
+      background-color: #007BFF;
+      color: #FFFFFF;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      margin: 5px;
+    }
+
+    button:hover {
+      background-color: #0056b3;
+    }
+  </style>
+</head>
+<body>
+  <h1>Estado del Sistema</h1>
+  <div id="measurement-container"></div>
+  <div id="status-container"></div>
+  <h2>Acciones</h2>
+  <button id="blinds-button">Cambiar Persiana</button>
+  <button id="ac-button">Cambiar Aire</button>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    let currentStatebl;
+    let currentStateac;
+    let currentTemperature;
+    let currentLuminosity;
+
+    // Conexión a Socket.IO
+    const socket = io();
+
+    // Manejo del evento de actualización de medidas
+    socket.on('measurementUpdate', (measurement) => {
+      // Actualizar la interfaz de usuario con el estado de los aparatos
+      const statusContainer = document.getElementById('status-container');
+      if (measurement.sensor === 'temperature') {
+        currentTemperature = measurement.value;
+      } else if (measurement.sensor === 'luminosity') {
+        currentLuminosity = measurement.value;
+      }
+      const measurementContainer = document.getElementById('measurement-container');
+      measurementContainer.innerHTML = `
+        <p>Temperatura actual: ${currentTemperature}</p>
+        <p>Luminosidad actual: ${currentLuminosity}</p>
+      `;
+    });
+
+    // Manejo del evento de actualización de estado de los aparatos
+    socket.on('action', (action) => {
+      // Actualizar la interfaz de usuario con el estado de los aparatos
+      const statusContainer = document.getElementById('status-container');
+      if (action.device === 'persiana') {
+        currentStatebl = action.state;
+      } else if (action.device === 'aire') {
+        currentStateac = action.state;
+      }
+      statusContainer.innerHTML = `
+        <p>Persiana: ${currentStatebl}</p>
+        <p>Aire acondicionado: ${currentStateac}</p>
+      `;
+    });
+
+    // Manejo del evento de estado inicial de los aparatos
+    socket.on('actuatorStatusUpdate', (status) => {
+      // Asignar los valores iniciales de los aparatos
+      currentStatebl = status.blinds ? 'Bajada' : 'Subida';
+      currentStateac = status.ac ? 'Encendido' : 'Apagado';
+
+      // Mostrar los valores iniciales en la interfaz de usuario
+      const statusContainer = document.getElementById('status-container');
+      statusContainer.innerHTML = `
+        <p>Persiana: ${currentStatebl}</p>
+        <p>Aire acondicionado: ${currentStateac}</p>
+      `;
+    });
+
+    // Manejo del evento de estado inicial de los sensores
+    socket.on('sensorStatusUpdate', (status) => {
+      // Asignar los valores iniciales de los sensores
+      currentTemperature = status.temperature;
+      currentLuminosity = status.luminosity;
+
+      // Mostrar los valores iniciales en la interfaz de usuario
+      const measurementContainer = document.getElementById('measurement-container');
+      measurementContainer.innerHTML = `
+        <p>Temperatura actual: ${currentTemperature}</p>
+        <p>Luminosidad actual: ${currentLuminosity}</p>
+      `;
+    });
+
+    // Cambiar el estado de la persiana
+    const blindsButton = document.getElementById('blinds-button');
+    blindsButton.addEventListener('click', () => {
+      const newState = currentStatebl === 'Subida' ? 'Bajada' : 'Subida';
+      const action = { device: 'persiana', state: newState };
+      socket.emit('action', action);
+    });
+
+    // Cambiar el estado del aire acondicionado
+    const acButton = document.getElementById('ac-button');
+    acButton.addEventListener('click', () => {
+      const newState = currentStateac === 'Apagado' ? 'Encendido' : 'Apagado';
+      const action = { device: 'aire', state: newState };
+      socket.emit('action', action);
+    });
+  </script>
+</body>
+</html>
